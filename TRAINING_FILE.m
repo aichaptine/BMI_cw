@@ -11,5 +11,5 @@ out = zeros(28,length(X_test));
 models = SVM_multiclass_train(X_train,y_train);
 
 for i=1:length(models)
-    out(i,:) = svmPredict(models(i), X_test');
+    out(i,:) = svmPredict(models(i), X_test);
 end
