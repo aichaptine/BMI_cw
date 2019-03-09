@@ -1,4 +1,14 @@
-function [model_1_2, model_1_] = SVM_multiclass_Train(data)
+function [model_1_2, model_1_3, model_1_4, model1_5] = SVM_multiclass_Train(data)
+
+%loop to go through all angles
+for i=1:8
+  for j= i+1:8
+    if i=j break
+    
+    svmTrain
+ 
+
+
 
 [X,y,id] = preprocess_planning_data(data);
 
