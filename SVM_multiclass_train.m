@@ -13,8 +13,8 @@ m = 0;
 for i=1:7
     for j= i+1:8
     m = m+1;
-    xi = X(:,find(y==i));  %finds training data relevant to this angle pair
-    xj = X(:,find(y==j));
+    xi = X_train(:,find(y==i));  %finds training data relevant to this angle pair
+    xj = y_train(:,find(y==j));
     models(m) = SVM_train(xi, xj,sigma,c); %trains the data for this angle pair
     end
   end
