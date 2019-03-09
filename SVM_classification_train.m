@@ -1,11 +1,10 @@
 function [model_1_2, model_1_3, model_1_4, model1_5] = SVM_multiclass_Train(data)
 
 %loop to go through all angles
-for i=1:8
+for i=1:7
   for j= i+1:8
-    if i=j break
     
-    svmTrain
+   model_i_j= svmTrain(data_for_angle_i_and_j, y, C, @linearKernel)
  
 
 
