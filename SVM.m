@@ -1,7 +1,4 @@
-function model = SVM(xi, xj)
-
-sigma=0.1;
-C=1.0;
+function model = SVM(xi, xj, sigma, C)
 
 X = [xi xj];
 y = [ones(1,length(xi)) zeros(1,length(xj))];
