@@ -1,4 +1,4 @@
-function [models] = SVM_multiclass_Train(data)
+function [models] = SVM_multiclass_train(data)
 
 sigma=0.1;
 C=1.0;
