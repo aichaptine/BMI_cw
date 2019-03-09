@@ -1,4 +1,4 @@
-function model = SVM(xi, xj, sigma, C)
+function model = SVM_train(xi, xj, sigma, C)
 
 X = [xi xj];
 y = [ones(1,length(xi)) zeros(1,length(xj))];
