@@ -8,7 +8,7 @@ models = zeros(1,28);
 
 %Pairwise method
 %loop to go through all angles
-for v=1:length(models
+for v=1:length(models)
   for i=1:7
     for j= i+1:8
     xi = X(:,find(y==i));
