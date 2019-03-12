@@ -1,5 +1,7 @@
 function out_updated = convert_to_RA(out)
 
+%This function converts 0s and 1s to the corresponding reaching angle.
+
 out_updated = zeros(size(out));
 a = zeros(1,size(out,2));
 m = 0;
