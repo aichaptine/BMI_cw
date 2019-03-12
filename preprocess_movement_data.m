@@ -21,14 +21,14 @@ function [X, y, id] = preprocess_movement_data(data, B, L)
         for j = 1:N_angles %access each cell
             
             %Take only data corresponding to movement
-            movement_spikes = data(i,j).spikes(:,300:end); %300 or 301?
-            movement_handPos = data(i,j).handPos(:,300:end);
+            movement_spikes = data(i,j).spikes(:,260:end); %300 or 301?
+            movement_handPos = data(i,j).handPos(:,260:end);
             T = size(movement_spikes, 2); %gives length of cut sample
             
             %Pass along spike-trains, take multi-bin segments (length B*L). Then get
             %firing rates for each neuron in each bin (this will give 98*B firing rates i.e. a vector length 98*B. 
             %Then place these firing rates in X, change in handPos in y and trialId in id
-            for k = B*L:L:T %need to start from B*L e.g. start at 60ms (if 3bins of size 20ms) since we need previous 60 values
+            for k = B*L:T %need to start from B*L e.g. start at 60ms (if 3bins of size 20ms) since we need previous 60 values
                 spike_sample = movement_spikes(:, k+1-B*L : k);
                 
                 %calculate features (firing rates) for all 98 neurons for each bin
