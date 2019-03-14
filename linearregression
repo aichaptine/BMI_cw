@@ -8,7 +8,7 @@ M=zeros(98,100);
 N= zeros(2,100);
 for n= 1: 100
     M(:,n)=trial(n,1).spikes(:,1);
-    N(:,n) = trial(n,1).handPos(1:2,2);
+    N(:,n) = trial(n,1).handPos(1:2,1);
 end
 
 X_train=M';
@@ -31,13 +31,14 @@ M=zeros(98,100);
 N= zeros(2,100);
 for n= 1: 100
     M(:,n)=trial(n,1).spikes(:,2);
-    N(:,n) = trial(n,1).handPos(1:2,3);
+    N(:,n) = trial(n,1).handPos(1:2,2);
 end
 
 X_test=M';
 y_test=N';
 
-
+X_test_predicted = predict(Wx, X_test);
+y_test_predicted = predict(Wy, y_test);
 
 
 
