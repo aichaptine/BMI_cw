@@ -2,33 +2,33 @@ clc; clear all; close all;
 load('monkeydata_training.mat')
 
 
-%% get training data: for 1 angle, for 1ms, 98 features (spike train) x 100 trials
+%% get training data: for 1 angle, for a 20ms bin, 98 features (spike train) x 100 trials
 M=zeros(98,100); 
 N= zeros(2,100);
 for n= 1: 100
     firing_rate = compute_rate(trial(n,1).spikes(:,300:319));
     M(:,n)=firing_rate;
     
-    velocity=compute_rate (trial(n,1).handPos(1:2,300:319));
+    velocity=trial(n,1).handPos(1:2,319)-trial(n,1).handPos(1:2,300);
     N(:,n) = velocity;
 end
 
 
- X_train=M';
- y_train=N';
+ spikes_train=M';
+ pos_train=N';
 
 
 
 %%  regression
 
-y_trainx= y_train (:,1);
-y_trainy= y_train (:,2);
+posX_train= pos_train (:,1);
+posY_train= pos_train (:,2);
 
 % for x
-Wx = fitrsvm(X_train , y_trainx);  % or fitlm 
+Wx = fitrsvm(spikes_train , posX_train);
 
 %for y
-Wy = fitrsvm(X_train , y_trainy);
+Wy = fitrsvm(spikes_train , posY_train);
 
 %%  testing data. same but 1 time step later
 M=zeros(98,100); 
@@ -38,8 +38,8 @@ for n= 1: 100
     N(:,n) = trial(n,1).handPos(1:2,3);
 end
 
-X_test=M';
-y_test=N';
+spikes_test=M';
+pos_test=N';
 
 
 
@@ -50,15 +50,15 @@ for n= 1: 100
     firing_rate = compute_rate(trial(n,1).spikes(:,320:339));
     M(:,n)=firing_rate;
     
-    velocity=compute_rate (trial(n,1).handPos(1:2,320:339));
+    velocity=trial(n,1).handPos(1:2,339)-trial(n,1).handPos(1:2,320);
     N(:,n) = velocity;
 end
 
-X_test=M';
-y_test=N';
+spikes_test=M';
+pos_test=N';
 
-x_test_predicted = predict(Wx, X_test);
-y_test_predicted = predict(Wy, X_test);
+Xpos_predicted = predict(Wx, spikes_test);
+Ypos_predicted = predict(Wy, spikes_test);
 
-delta_x=y_test(:,1)-x_test_predicted;
-delta_y=y_test(:,2)-y_test_predicted;
+delta_x=pos_test(:,1)-Xpos_predicted;
+delta_y=pos_test(:,2)-Ypos_predicted;
