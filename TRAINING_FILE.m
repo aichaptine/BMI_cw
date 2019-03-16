@@ -3,8 +3,10 @@ load('monkeydata_training.mat');
 
 %% Classifying different reaching angles using the 300ms before movement.
 
-sigma=500;
-c=1.0; %Cross-validation to find best values for these may be needed
+%sigma=10;
+%c=1.635; %Cross-validation to find best values for these may be needed
+sigma=550;
+c=1.635;
 
 [X,y,id] = preprocess_planning_data(trial);  %preprocess the data, returns: firing rate for first 300ms in 'X', 
                                             %Takes reaching angle for trial in 'y'  and Takes trial id in 'id'
