@@ -38,7 +38,7 @@ X_test=M';
 y_test=N';
 
 X_test_predicted = predict(Wx, X_test);
-y_test_predicted = predict(Wy, y_test);
+y_test_predicted = predict(Wy, X_test);
 
 
 
