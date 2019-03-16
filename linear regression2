@@ -3,13 +3,17 @@ load('monkeydata_training.mat')
 
 
 %% get training data: for 1 angle, for a 20ms bin, 98 features (spike train) x 100 trials
+
+   
 M=zeros(98,100); 
 N= zeros(2,100);
+
+
 for n= 1: 100
-    firing_rate = compute_rate(trial(n,1).spikes(:,300:319));
+    firing_rate = compute_rate(trial(n,1).spikes(:,1:20));
     M(:,n)=firing_rate;
     
-    velocity=trial(n,1).handPos(1:2,319)-trial(n,1).handPos(1:2,300);
+    velocity=trial(n,1).handPos(1:2,20)-trial(n,1).handPos(1:2,1);
     N(:,n) = velocity;
 end
 
@@ -18,39 +22,54 @@ end
  pos_train=N';
 
 
-
-%%  regression
-
 posX_train= pos_train (:,1);
 posY_train= pos_train (:,2);
 
 % for x
-Wx = fitrsvm(spikes_train , posX_train);
+Wx = fitrkernel(spikes_train , posX_train);
 
 %for y
-Wy = fitrsvm(spikes_train , posY_train);
+Wy = fitrkernel(spikes_train , posY_train);
 
-%%  testing data. same but 1 time step later
+
+%%
 M=zeros(98,100); 
 N= zeros(2,100);
+
+i=21; j=40;
+
+for m= 1: 23
+   
 for n= 1: 100
-    M(:,n)=trial(n,1).spikes(:,2);
-    N(:,n) = trial(n,1).handPos(1:2,3);
-end
-
-spikes_test=M';
-pos_test=N';
-
-
-
-%%  testing data. same but 1 time step later
-M=zeros(98,100); 
-N= zeros(2,100);
-for n= 1: 100
-    firing_rate = compute_rate(trial(n,1).spikes(:,320:339));
+    firing_rate = compute_rate(trial(n,1).spikes(:,i:j));
     M(:,n)=firing_rate;
     
-    velocity=trial(n,1).handPos(1:2,339)-trial(n,1).handPos(1:2,320);
+    velocity=trial(n,1).handPos(1:2,j)-trial(n,1).handPos(1:2,i);
+    N(:,n) = velocity;
+end
+
+ spikes_train=M';
+ pos_train=N';
+
+
+posX_train= pos_train (:,1);
+posY_train= pos_train (:,2);
+Wx = resume(Wx,spikes_train,posX_train);
+Wy = resume(Wy,spikes_train,posY_train);
+
+i=i+20 ; j=j+20;
+
+end
+
+%%  testing data. 
+
+M=zeros(98,100); 
+N= zeros(2,100);
+for n= 1: 100
+    firing_rate = compute_rate(trial(n,1).spikes(:,481:500));
+    M(:,n)=firing_rate;
+    
+    velocity=trial(n,1).handPos(1:2,500)-trial(n,1).handPos(1:2,481);
     N(:,n) = velocity;
 end
 
@@ -62,3 +81,4 @@ Ypos_predicted = predict(Wy, spikes_test);
 
 delta_x=pos_test(:,1)-Xpos_predicted;
 delta_y=pos_test(:,2)-Ypos_predicted;
+
