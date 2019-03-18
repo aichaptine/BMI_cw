@@ -3,27 +3,119 @@ load('monkeydata_training.mat')
 
 %Take only one reaching angle and train model
 %N.B. only took first 80 trials for training; remainder are for testing
-[X_train, y_train, id_move] = preprocess_movement_data(trial(1:80,7), 3, 20);
-[X_train, y_train, ~] = shuffle_data(X_train, y_train, id_move);
+[X_train, y_train, id_move1] = preprocess_movement_data(trial(1:80,7), 3, 20);
+[X_cv, y_cv, id_move2] = preprocess_movement_data(trial(81:end,7), 3, 20);
+[X_train, y_train] = shuffleData(X_train, y_train);
+[X_cv, y_cv] = shuffleData(X_cv, y_cv);
 
 mx = mean(X_train, 2);
 sx = std(X_train, 0, 2);
 my = mean(y_train, 2);
 
 X_train = (X_train-mx)./sx;
+X_cv = (X_cv-mx)./sx;
 y_train = y_train - my;
+y_cv = y_cv - my;
 X_train((sx==0), :) = [];
+X_cv((sx==0), :) = [];
 
 
 %%
-input_layer_size = size(X_train,1);
-net1 = constructNet(0.1,1,0,input_layer_size,100,2)
+input_layer_size = size(X_train, 1);
+net1 = constructNet(0.001, 1, 0.1, input_layer_size, 100, 2)
 
 %%
-net1 = trainNet(X_train, y_train, net1, 50, 32);
+[net1,p] = trainNet(X_train, y_train, X_cv, y_cv, net1, 10, 32);
 
+%%
+lr = logspace(-3,-1,6);
+lambda = logspace(-3,-1,6);
+perf_cv = zeros(length(lr), length(lambda), 5, 426);
+perf_tr = perf_cv;
+
+for k = [20 50 100 150 200]
+    fprintf('\nK: %d, ', k)
+    for i = 1:length(lr)
+        fprintf('lr: %d, ', lr(i))
+        for j = 1:length(lambda)
+            fprintf('lambda: %d ', lambda(j))
+            net1 = constructNet(lr(i),1,lambda(j),input_layer_size,k,2);
+            [net1,p] = trainNet(X_train, y_train, X_cv, y_cv, net1, 25, 32);
+            perf_cv(i,j,k,:) = p.cv;
+            perf_tr(i,j,k,:) = p.train;
+            clear net1
+        end
+    end
+end
 %%
 y_pred = predictNet(X_train(:,1:50), net1)
+
+%%
+%%
+L=20;
+B=3;
+for M = 81:100
+    X_t = [];
+    y_t = [];
+    movement_spikes = trial(M,7).spikes(:,260:end); %300 or 301?
+    movement_handPos = trial(M,7).handPos(:,260:end);
+    T = size(movement_spikes, 2); %gives length of cut sample
+
+    for k = B*L:L:T
+        spike_sample = movement_spikes(:, k+1-B*L : k);
+
+        %calculate features (firing rates) for all 98 neurons for each bin
+        feature_sample = splice_data(spike_sample, B);
+        %calculate change in x,y position over 20ms (L) interval
+        delta_handPos_sample = movement_handPos(1:2, k) - movement_handPos(1:2, k+1-L); 
+
+        %append above to the output matrices
+        feature_sample = (feature_sample - mx)./sx;
+        X_t = [X_t, feature_sample];
+        y_t = [y_t, delta_handPos_sample];
+    end 
+
+    %NEED TO MAKE SURE WE REMOVE ROWS OF TEST DATA THAT WE REMOVED FOR TESTING
+    X_t((sx==0),:) = [];
+
+    y_pred = predictNet(X_t, net1);
+    y_pred = y_pred + my; %undo zero-centre output
+    y_t
+
+%     figure()
+%     subplot(1,2,1)
+%     hold on
+%     plot(y_pred(1,:))
+%     plot(y_t(1,:))
+%     hold off
+%     xlabel('Bin number')
+%     ylabel('Predicted x movement')
+%     subplot(1,2,2)
+%     hold on
+%     plot(y_pred(2,:))
+%     plot(y_t(2,:))
+%     hold off
+%     legend('Predicted', 'True')
+%     xlabel('Bin number')
+%     ylabel('Predicted y movement')
+
+    pos_pred = cumsum(y_pred,2);
+    pos_true = cumsum(y_t,2);
+
+    %figure()
+    [theta,rho] = cart2pol(pos_pred(1,:), pos_pred(2,:));
+    polarplot(theta,rho,'r')
+    rlim([0 120])
+    hold on
+    polarplot(theta(end),rho(end),'*r')
+    [theta,rho] = cart2pol(pos_true(1,:), pos_true(2,:));
+    polarplot(theta,rho,'b')
+    polarplot(theta(end),rho(end),'*b')
+    legend('Predicted Trajectory', '', 'True Trajectory', '')
+    hold off
+    pause(1)
+    %close all;
+end
 %%
 function net = constructNet(lr, b, lambda, I, H, O);
 
@@ -36,30 +128,50 @@ function net = constructNet(lr, b, lambda, I, H, O);
     
 end
 
-function net_out = trainNet(X, y, net_in, E, B)
+function [net_out, perf_stats] = trainNet(X_train, y_train, X_cv, y_cv, net_in, E, B)
+%     train_perf = zeros(1,E+1);
+     test_perf = zeros(1, E+1);
+%     cv_perf = zeros(1, E+1);
     
+    train_perf = estimatePerformance(X_train, y_train, net_in);
+    cv_perf = estimatePerformance(X_cv, y_cv, net_in);
+
     for epoch = 1:E
-        %need to shuffle?
-        for sample = 1:B:length(y)-B
-            X_batch = X(:, sample:sample+B-1);
-            y_batch = y(:, sample:sample+B-1);
+        %fprintf('\nEpoch = %d', epoch)
+        fprintf('.')
+        [X_train, y_train] = shuffleData(X_train,y_train);
+        for sample = 1:B:length(y_train)-B
+            X_batch = X_train(:, sample:sample+B-1);
+            y_batch = y_train(:, sample:sample+B-1);
             
             [dw1, dw2] = backwardPass(X_batch, y_batch, net_in, B);
             
             net_in.theta1 = net_in.theta1 + dw1; %update weights of net
             net_in.theta2 = net_in.theta2 + dw2;
+            
+            if rem(sample-1, 50*B) == 0
+                train_perf = [train_perf estimatePerformance(X_train, y_train, net_in)];
+                cv_perf = [cv_perf estimatePerformance(X_cv, y_cv, net_in)];
+            end
         end
-        fprintf('Epoch = %d', epoch)
-        perf = estimatePerformance(X, y, net_in)
+%         train_perf(epoch+1) = estimatePerformance(X_train, y_train, net_in);
+%         cv_perf(epoch+1) = estimatePerformance(X_cv, y_cv, net_in);
     end
+    
+    figure();hold on; plot(train_perf); plot(cv_perf); hold off; legend('Train Loss', 'CV Loss')
     net_out = net_in;
+    perf_stats.train = train_perf;
+    perf_stats.cv = cv_perf;
+    perf_stats.test = test_perf;
     
     function MSE = estimatePerformance(X_test, y_test, net) 
         [~,~,y_pred] = forwardPass(X_test, net);
         MSE = 0;
-        for i = 1:size(y_test, 2)
+        m = size(y_test, 2);
+        for i = 1:m
             MSE = MSE + norm(y_test(:,i) - y_pred(:,i))^2;
         end
+        MSE = MSE/m;
     end
     function [w1, w2] = backwardPass(X, y, net, B)
         %get weights and fwd propagate
@@ -155,4 +267,8 @@ function y_pred = predictNet(X, net_in)
     end
 end
 
-function 
+function [X_out, y_out] = shuffleData(X, y)
+    idx = randperm(size(y,2)); %generate shuffled indexes
+    X_out = X(:, idx); %shuffle columns (each column is a training example)
+    y_out = y(:, idx);
+end
