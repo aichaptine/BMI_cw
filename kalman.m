@@ -15,8 +15,8 @@ T=571;
 lambda_f = 1;
 lambda_h = 1;
 for i=1:80 %number of trials
-hand_positions = trial(i,angle).handPos(1:2,301:T-100);
-spike_rates = trial(i,angle).spikes(:,301:T-120); %if the X for H is the original X
+hand_positions = trial(i,angle).handPos(1:2,301:end-100);
+spike_rates = trial(i,angle).spikes(:,301:end-120); %if the X for H is the original X
 X = hand_positions(1:2,1:end-20);
 X_shift = hand_positions(1:2, 21:end);
 F(:,:,i)= X_shift*X'*inv(X*X' + lambda_f*eye(2));
@@ -26,19 +26,20 @@ F_for_all=mean(F,3);
 H_for_all=mean(H,3);
 %need to calculate also Q and R
 for i=1:80
-hand_positions = trial(i,angle).handPos(1:2,301:T-100);
-spike_rates = trial(i,angle).spikes(:,301:T-120); %if the X for H is the original X
+hand_positions = trial(i,angle).handPos(1:2,301:end-100);
+spike_rates = trial(i,angle).spikes(:,301:end-120); %if the X for H is the original X
 X = hand_positions(1:2,1:end-20);
 X_shift = hand_positions(1:2, 21:end);    
 EF=F_for_all*X - X_shift;
 EH=H_for_all*X - spike_rates;
-Q(:,:,i)=(EF*(EF)')/(T-2);
-R(:,:,i)=(EH*(EH)')/(T-2);
+Q(:,:,i)=(EF*(EF)')/((size(hand_positions,2))-2);
+R(:,:,i)=(EH*(EH)')/((size(hand_positions,2))-2);
 end
 Q_for_all=mean(Q,3);
 R_for_all=mean(R,3);
 
 %I am stuck because i dont understand how to get P which is required in
 %order to calculate the Kalman gain
+
 
 
