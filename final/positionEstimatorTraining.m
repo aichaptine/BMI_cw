@@ -1,7 +1,7 @@
 function modelParameters = positionEstimatorTraining(training_data)
 %MODEL PARAMETERS STUCTURE:
 %10x1 cell array
-%[ {regressor_RA1}, {regressor_RA2}, ..., {regressor_RA8}, {SVM}, {states} ]
+%[ {regressor_RA1}, {regressor_RA2}, ..., {regressor_RA8}, {SVM}, {reach_angle}]
 
 %Regressor_RA:
 %regressor_RAi is neural network model trained specifically for reaching
@@ -13,21 +13,20 @@ function modelParameters = positionEstimatorTraining(training_data)
 %SVM:
 %Please fill in
 
-%States:
-%States are of form:
-%states = struct('reach_angle', 0, 'current_pos', [0 0]);
-%These are passed as input to the testing algorithm to ensure that values are not repeatedly
-%re-calculated. The testing algorithm updates them at each call.
-%For example, the net outputs change in x,y for a given 60ms input. To
-%avoid calculating all previous changes in order to get current position,
-%this is instead passed in via the state cell.
-%Meanwhile, reaching angle only needs to be predicted on the first call of
-%positionEstimator.
+% %States:
+% %States are of form:
+% %states = struct('reach_angle', 0, 'current_pos', [0 0]);
+% %These are passed as input to the testing algorithm to ensure that values are not repeatedly
+% %re-calculated. The testing algorithm updates them at each call.
+% %For example, the net outputs change in x,y for a given 60ms input. To
+% %avoid calculating all previous changes in order to get current position,
+% %this is instead passed in via the state cell.
+% %Meanwhile, reaching angle only needs to be predicted on the first call of
+% %positionEstimator.
 
 num_angles = 8;
 modelParameters = cell(num_angles+2,1);
-states = struct('reach_angle', 0, 'current_pos', [0 0]);
-modelParameters{end} = states;
+modelParameters{end} = 0;
 
 fprintf('Commencing training of models...\n')
 
@@ -111,7 +110,7 @@ for angle = 1:num_angles
     
     %Train NN model
     %10 epochs, 100 batch size
-    net = trainNet(X_move, y_move, net, 10, 128);
+    net = trainNet(X_move, y_move, net, 20, 128);
     modelParameters{angle} = net;
     clear net
     fprintf('\n')

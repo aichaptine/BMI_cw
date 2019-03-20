@@ -1,4 +1,4 @@
-function [x y, modelParameters] = positionEstimator(test_data, modelParameters)
+function [x, y, modelParameters] = positionEstimator(test_data, modelParameters)
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %      SVM CLASSIFIER PREDICTION       %
@@ -7,8 +7,8 @@ function [x y, modelParameters] = positionEstimator(test_data, modelParameters)
 %Using test_data, predict angle
 
 
-if (modelParameters{end}.reach_angle ~= 0) %i.e. if already predicted, get angle (so we dont have to predict every time)
-    predAngle = modelParameters{end}.reach_angle;
+if (modelParameters{end} ~= 0) %i.e. if already predicted, get angle (so we dont have to predict every time)
+    predAngle = modelParameters{end};
 else
     %perform SVM to find predAngle
     %N.B SVM parameters stored in modelParameters{end-1}
@@ -21,7 +21,7 @@ end
 
 selectedNet = modelParameters{predAngle}; %select NN for chosen reaching angle
 feat_vec = preprocessMovementData(test_data, 3, 20); %take previous 3x20ms of data, construct feature vector
-
+size(feat_vec)
 %Normalise test data with parameters from training data
 mx = selectedNet.mx;
 sx = selectedNet.sx;
@@ -30,13 +30,16 @@ feat_vec = (feat_vec-mx)./sx;
 feat_vec((sx==0), :) = []; %remove rows with 0 std as no variation so dont contribute
 
 decodedDeltaPos = predictNet(feat_vec, selectedNet); %predict change in x,y for given feature vector
-
 decodedDeltaPos = decodedDeltaPos + my; %undo mean-centre of pos data
 
-currentPosX = modelParameters{end}.current_pos(1); %read current positions
-currentPosY = modelParameters{end}.current_pos(2); %read current positions
-x = currentPosX + decodedDeltaPos(1);
-y = currentPosY + decodedDeltaPos(2);
+if (size(test_data.spikes, 2) == 320)
+    currentPos = test_data.startHandPos + decodedDeltaPos;
+else
+    currentPos = test_data.decodedHandPos(:,end) + decodedDeltaPos;
+end
+
+x = currentPos(1);
+y = currentPos(2);
 
 function y_pred = predictNet(X, net_in)
     [~,~,y_pred] = forwardPass(X, net_in);
@@ -64,6 +67,20 @@ function y_pred = predictNet(X, net_in)
     end
 end
 
+function X = preprocessPlanningData(data)
+%Takes in test_data
+%1. Calc firing rates for first 300ms -> column of X
+
+    %Take only data corresponding to planning (<300ms)
+    planning_spikes = data.spikes(:,1:300); 
+    T = 300; %gives length of cut sample
+
+    %Calc firing rate for all neurons in 300ms interval
+    spike_count = sum(planning_spikes, 2); %count number of spikes per spike-train
+    firing_rates = spike_count*1000/T; %divide by length of spike-train
+    X = firing_rates;
+end
+
 function feature_vector = preprocessMovementData(data, B, L)
             
     %Take only data corresponding to movement
@@ -78,40 +95,7 @@ function feature_vector = preprocessMovementData(data, B, L)
         fr = spike_count*1000/L; %divide by length of spike-train
         feature_vector(1+(i-1)*N:i*N) = fr;
     end
-end
-% function feature_vector = spliceData(data, B)
-% %Takes in data segment length T ms (i.e. NxT) and
-% %1. Splits data into B segments (i.e segment size: N x T/B)
-% %2. Extracts firing rates from each segment
-% %Outputs 1-D vector of length (N*B x 1):
-% %[----fr_bin1----, ----fr_bin2----, ..., ----fr_binB----]
-% %e.g. fr_bin1 contains firing rates for neurons in 1st bin
-%     [N, T] = size(data);
-%     feature_vector = zeros(N*B, 1);
-%     L = T/B; %L = bin length
-%     
-%     for i = 1:B
-%         bin = data(:, 1+(i-1)*L : i*L); %take sub section of input data
-%         spike_count = sum(bin, 2); %count number of spikes per spike-train
-%         feature_vector = spike_count*1000/L; %divide by length of spike-train
-%         feature_vector(1+(i-1)*N:i*N) = fr;
-%     end
-% 
-% end
-
-
-function X = preprocessPlanningData(data)
-%Takes in test_data
-%1. Calc firing rates for first 300ms -> column of X
-
-    %Take only data corresponding to planning (<300ms)
-    planning_spikes = data.spikes(:,1:300); 
-    T = 300; %gives length of cut sample
-
-    %Calc firing rate for all neurons in 300ms interval
-    spike_count = sum(planning_spikes, 2); %count number of spikes per spike-train
-    firing_rates = spike_count*1000/T; %divide by length of spike-train
-    X = firing_rates;
+    feature_vector = feature_vector';
 end
 
 end

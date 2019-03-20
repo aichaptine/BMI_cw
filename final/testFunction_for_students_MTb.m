@@ -15,8 +15,8 @@ ix = randperm(length(trial));
 %addpath(teamName);
 
 % Select training and testing data (you can choose to split your data in a different way if you wish)
-trainingData = trial(ix(1:70),:);
-testData = trial(ix(71:end),:);
+trainingData = trial(ix(1:80),:);
+testData = trial(ix(81:end),:);
 
 fprintf('Testing the continuous position estimator...')
 
@@ -42,11 +42,10 @@ for tr=1:size(testData,1)
         %
         %
         %
-        modelParameters{end}.reach_angle = direc;
+        modelParameters{end} = direc;
         %
         %
         %
-        
         for t=times
             past_current_trial.trialId = testData(tr,direc).trialId;
             past_current_trial.spikes = testData(tr,direc).spikes(:,1:t); 
@@ -69,7 +68,6 @@ for tr=1:size(testData,1)
         end
         n_predictions = n_predictions+length(times);
         hold on
-        decodedHandPos
         plot(decodedHandPos(1,:),decodedHandPos(2,:), 'r');
         plot(testData(tr,direc).handPos(1,times),testData(tr,direc).handPos(2,times),'b')
     end
