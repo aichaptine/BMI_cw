@@ -4,15 +4,108 @@ function [x, y, modelParameters] = positionEstimator(test_data, modelParameters)
         %      SVM CLASSIFIER PREDICTION       %
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
-%Using test_data, predict angle
 
 
-if (modelParameters{end} ~= 0) %i.e. if already predicted, get angle (so we dont have to predict every time)
-    predAngle = modelParameters{end};
-else
+% if (modelParameters{end} ~= 0) %i.e. if already predicted, get angle (so we dont have to predict every time)
+%     predAngle = modelParameters{end};
+% else
     %perform SVM to find predAngle
     %N.B SVM parameters stored in modelParameters{end-1}
     %update modelParameters{end} to predAngle
+    %Using test_data, predict angle
+    test_data_processed = preprocessPlanningData(test_data);
+    out = zeros(28,size(test_data_processed, 2));
+    models = modelParameters{end-1};
+    for model=1:length(models)
+        out(model,:) = svmPredict(models(model), test_data_processed');
+    end
+    predictions = convert_to_RA(out);
+    predAngle = count_occurrences(predictions); 
+    modelParameters{end} = predAngle;
+    predAngle
+% end
+
+function pred = svmPredict(model, X)
+%SVMPREDICT returns a vector of predictions using a trained SVM model
+%(svmTrain). 
+%   pred = SVMPREDICT(model, X) returns a vector of predictions using a 
+%   trained SVM model (svmTrain). X is a mxn matrix where there each 
+%   example is a row. model is a svm model returned from svmTrain.
+%   predictions pred is a m x 1 column of predictions of {0, 1} values.
+%
+
+% Check if we are getting a column vector, if so, then assume that we only
+% need to do prediction for a single example
+if (size(X, 2) == 1)
+    % Examples should be in rows
+    X = X';
+end
+
+% Dataset 
+m = size(X, 1);
+p = zeros(m, 1);
+pred = zeros(m, 1);
+
+if strcmp(func2str(model.kernelFunction), 'linearKernel')
+    % We can use the weights and bias directly if working with the 
+    % linear kernel
+    p = X * model.w + model.b;
+elseif contains(func2str(model.kernelFunction), 'gaussianKernel')
+    % Vectorized RBF Kernel
+    % This is equivalent to computing the kernel on every pair of examples
+    X1 = sum(X.^2, 2);
+    X2 = sum(model.X.^2, 2)';
+    K = bsxfun(@plus, X1, bsxfun(@plus, X2, - 2 * X * model.X'));
+    K = model.kernelFunction(1, 0) .^ K;
+    K = bsxfun(@times, model.y', K);
+    K = bsxfun(@times, model.alphas', K);
+    p = sum(K, 2);
+else
+    % Other Non-linear kernel
+    for i = 1:m
+        prediction = 0;
+        for j = 1:size(model.X, 1)
+            prediction = prediction + ...
+                model.alphas(j) * model.y(j) * ...
+                model.kernelFunction(X(i,:)', model.X(j,:)');
+        end
+        p(i) = prediction + model.b;
+    end
+end
+
+% Convert predictions into 0 / 1
+pred(p >= 0) =  1;
+pred(p <  0) =  0;
+
+end
+function out_updated = convert_to_RA(out)
+
+out_updated = zeros(size(out));
+a = zeros(1,size(out,2));
+m = 0;
+
+    for i=1:7
+        for j= i+1:8
+            m = m+1;
+            a(out(m,:)==1) = i;
+            a(out(m,:)==0) = j;
+            out_updated(m,:) = a;
+        end
+    end
+    
+end
+function predicted_angles = count_occurrences(out)
+    ysvm = zeros(1,8);
+    predicted_angles = zeros(1,size(out,2));
+    
+    for i=1:size(out,2)
+        v = out(:,i);
+        for j=1:length(ysvm)
+            ysvm(j) = sum(v==j);
+        end
+        [argvalue, argmax] = max(ysvm);
+        predicted_angles(i) = argmax;
+    end
 end
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -21,7 +114,6 @@ end
 
 selectedNet = modelParameters{predAngle}; %select NN for chosen reaching angle
 feat_vec = preprocessMovementData(test_data, 3, 20); %take previous 3x20ms of data, construct feature vector
-size(feat_vec)
 %Normalise test data with parameters from training data
 mx = selectedNet.mx;
 sx = selectedNet.sx;
