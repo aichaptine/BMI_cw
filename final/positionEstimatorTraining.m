@@ -82,7 +82,7 @@ fprintf('Finished Training SVM.\n\n')
         
 num_angles = 8;
 learn_rate = [0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]; %need to optimise
-reg_param = [3 3 3 3 3 3 3 3];
+reg_param = [1.2915 1.2915 1.2915 1.2915 1.2915 1.2915 1.2915 1.2915];
 
 %FOR EACH ANGLE, BUILD A NN SEPARATE MODEL
 for angle = 1:num_angles 
