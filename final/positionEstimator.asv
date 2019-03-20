@@ -1,0 +1,120 @@
+function [x y, modelParameters] = positionEstimator(test_data, modelParameters)
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %      SVM CLASSIFIER PREDICTION       %
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+%Using test_data, predict angle
+
+
+if (modelParameters{end}.reach_angle != 0) %i.e. if already predicted, get angle (so we dont have to predict every time)
+    predAngle = modelParameters{end}.reach_angle;
+else
+    %perform SVM to find predAngle
+    %N.B SVM parameters stored in modelParameters{end-1}
+    %update modelParameters{end} to predAngle
+end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        %       NN REGRESSOR PREDICTION        %
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+selectedNet = model{predAngle};
+processed_spikes = preprocessMovementData(test_data, 3, 20);
+decodedDeltaPos = predictNet(X, selectedNet);
+
+[currentPosX, currentPosY] = modelParameters{end}.current_pos;
+truePos = 
+
+function y_pred = predictNet(X, net_in)
+    [~,~,y_pred] = forwardPass(X, net_in);
+    function [V0, V1, V2] = forwardPass(X, net)
+        beta = net.beta;
+        theta1 = net.theta1;
+        theta2 = net.theta2;
+
+        m = size(X,2); %get number of samples 
+        V0 = [ones(1,m); X]; %add bias term
+
+        %Hidden layer = sigmoid units
+        u1 = theta1*V0;
+        V1 = sigmoid(u1, beta);
+
+        %Output layer = linear units
+        V1 = [ones(1,m); V1]; %add bias term
+        u2 = theta2*V1;
+        V2 = u2;
+    end
+    function f = sigmoid(u, b)
+        %performs sigmoid function of u with parameter b(eta)
+        %u may be any dimension
+        f = 1.0 ./ (1.0 + exp(-b*u));
+    end
+end
+
+function feature_vector = preprocessMovementData(data,B,L)
+    movement_spikes = data.spikes(:, end-B*L+1:end); %take previous B*L ms of data (i.e. B bins of length L ms)
+
+    [num_trains, ~] = size(data); %count number of neural units in data
+    feature_vector = zeros(num_trains*B, 1); %initialise feature vector output, of dimension N*B - contains firing rates for every neuron for B bins
+    
+    for i = 1:B
+        bin = movement_spikes(:, 1+(i-1)*L : i*L); %take sub section of input data
+        
+        %calculate rate within bin
+        count = sum(bin, 2); %count number of spikes per spike-train
+        fr = count*1000/L; %divide by length of spike-train
+        
+        feature_vector(1+(i-1)*num_trains:i*num_trains) = fr;
+    end
+end
+% function [X, y] = preprocessMovementData(data, B, L)
+% %Function takes in data structure (100x8 trials) and:
+% %1. Computes features -> X (where each column is a single training sample):
+% %example column of X: [----98 neuron FRs for bin 1----, ----98 neuron FRs for bin2----, ... ----98 neuron FRs for bin B----]
+% %i.e. column length is 98*B
+% %2. Compute target outputs -> y (change in hand pos over selected bin)
+% %3. Label each sample with trialId -> id (each column is trialID for
+% %corresponding sample)
+% %N.B data input is 100x8 array. Each element is a structure containing
+% %trialID, spikes (98xL), handPos (2xL)
+%             
+%     %Take only data corresponding to movement
+%     movement_spikes = data.spikes(:, 301-B*L:end-100); %300 or 301?
+%     movement_handPos = data.handPos(:, 301-B*L:end-100);
+%     T = size(movement_spikes, 2); %gives length of cut sample
+% 
+%     %Pass along spike-trains, take multi-bin segments (length B*L). Then get
+%     %firing rates for each neuron in each bin (this will give 98*B firing rates i.e. a vector length 98*B. 
+%     %Then place these firing rates in X, change in handPos in y and trialId in id
+%     for k = B*L:T %need to start from B*L e.g. start at 60ms (if 3bins of size 20ms) since we need previous 60 values
+%         spike_sample = movement_spikes(:, k+1-B*L : k);
+% 
+%         %calculate features (firing rates) for all 98 neurons for each bin
+%         feature_sample = spliceData(spike_sample, B);
+% 
+%         %calculate change in x,y position over 20ms (L) interval
+%         delta_handPos_sample = movement_handPos(1:2, k) - movement_handPos(1:2, k+1-L); 
+% 
+%         %append above to the output matrices
+%         X = [X, feature_sample];
+%         y = [y, delta_handPos_sample];
+%     end
+% end
+
+function X = preprocessPlanningData(data)
+%Takes in test_data
+%1. Calc firing rates for first 300ms -> column of X
+
+    %Take only data corresponding to planning (<300ms)
+    planning_spikes = data.spikes(:,1:300); 
+    T = 300; %gives length of cut sample
+
+    %Calc firing rate for all neurons in 300ms interval
+    spike_count = sum(planning_spikes, 2); %count number of spikes per spike-train
+    firing_rates = spike_count*1000/T; %divide by length of spike-train
+    X = firing_rates;
+end
+
+end
+
