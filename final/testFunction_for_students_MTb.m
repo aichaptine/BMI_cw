@@ -69,6 +69,7 @@ for tr=1:size(testData,1)
         end
         n_predictions = n_predictions+length(times);
         hold on
+        decodedHandPos
         plot(decodedHandPos(1,:),decodedHandPos(2,:), 'r');
         plot(testData(tr,direc).handPos(1,times),testData(tr,direc).handPos(2,times),'b')
     end

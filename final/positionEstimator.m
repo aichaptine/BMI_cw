@@ -7,7 +7,7 @@ function [x y, modelParameters] = positionEstimator(test_data, modelParameters)
 %Using test_data, predict angle
 
 
-if (modelParameters{end}.reach_angle != 0) %i.e. if already predicted, get angle (so we dont have to predict every time)
+if (modelParameters{end}.reach_angle ~= 0) %i.e. if already predicted, get angle (so we dont have to predict every time)
     predAngle = modelParameters{end}.reach_angle;
 else
     %perform SVM to find predAngle
@@ -33,7 +33,8 @@ decodedDeltaPos = predictNet(feat_vec, selectedNet); %predict change in x,y for 
 
 decodedDeltaPos = decodedDeltaPos + my; %undo mean-centre of pos data
 
-[currentPosX, currentPosY] = modelParameters{end}.current_pos; %read current positions
+currentPosX = modelParameters{end}.current_pos(1); %read current positions
+currentPosY = modelParameters{end}.current_pos(2); %read current positions
 x = currentPosX + decodedDeltaPos(1);
 y = currentPosY + decodedDeltaPos(2);
 
@@ -62,6 +63,42 @@ function y_pred = predictNet(X, net_in)
         f = 1.0 ./ (1.0 + exp(-b*u));
     end
 end
+
+function feature_vector = preprocessMovementData(data, B, L)
+            
+    %Take only data corresponding to movement
+    movement_spikes = data.spikes(:, end-B*L+1:end);
+    N = size(movement_spikes, 1);
+%     spike_sample = movement_spikes(:, k+1-B*L : k);
+
+    %calculate features (firing rates) for all 98 neurons for each bin
+    for i = 1:B
+        bin = movement_spikes(:, 1+(i-1)*L : i*L); %take sub section of input data
+        spike_count = sum(bin, 2); %count number of spikes per spike-train
+        fr = spike_count*1000/L; %divide by length of spike-train
+        feature_vector(1+(i-1)*N:i*N) = fr;
+    end
+end
+% function feature_vector = spliceData(data, B)
+% %Takes in data segment length T ms (i.e. NxT) and
+% %1. Splits data into B segments (i.e segment size: N x T/B)
+% %2. Extracts firing rates from each segment
+% %Outputs 1-D vector of length (N*B x 1):
+% %[----fr_bin1----, ----fr_bin2----, ..., ----fr_binB----]
+% %e.g. fr_bin1 contains firing rates for neurons in 1st bin
+%     [N, T] = size(data);
+%     feature_vector = zeros(N*B, 1);
+%     L = T/B; %L = bin length
+%     
+%     for i = 1:B
+%         bin = data(:, 1+(i-1)*L : i*L); %take sub section of input data
+%         spike_count = sum(bin, 2); %count number of spikes per spike-train
+%         feature_vector = spike_count*1000/L; %divide by length of spike-train
+%         feature_vector(1+(i-1)*N:i*N) = fr;
+%     end
+% 
+% end
+
 
 function X = preprocessPlanningData(data)
 %Takes in test_data
