@@ -37,8 +37,6 @@ decodedDeltaPos = decodedDeltaPos + my; %undo mean-centre of pos data
 x = currentPosX + decodedDeltaPos(1);
 y = currentPosY + decodedDeltaPos(2);
 
-
-
 function y_pred = predictNet(X, net_in)
     [~,~,y_pred] = forwardPass(X, net_in);
     function [V0, V1, V2] = forwardPass(X, net)

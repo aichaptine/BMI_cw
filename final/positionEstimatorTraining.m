@@ -111,7 +111,7 @@ for angle = 1:num_angles
     
     %Train NN model
     %10 epochs, 100 batch size
-    net = trainNet(X_move, y_move, net, 10, 128);
+    net = trainNet(X_move, y_move, net, 5, 128);
     modelParameters{angle} = net;
     clear net
     fprintf('\n')
