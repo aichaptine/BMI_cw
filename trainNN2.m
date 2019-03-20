@@ -4,7 +4,7 @@ load('monkeydata_training.mat')
 %Take only one reaching angle and train model
 %N.B. only took first 80 trials for training; remainder are for testing
 [X_train, y_train, id_move1] = preprocess_movement_data(trial(1:80,7), 3, 20);
-[X_cv, y_cv, id_move2] = preprocess_movement_data(trial(81:end,7), 3, 20);
+[X_cv, y_cv, id_move2] = preprocess_movement_data(trial(81:91,7), 3, 20);
 [X_train, y_train] = shuffleData(X_train, y_train);
 [X_cv, y_cv] = shuffleData(X_cv, y_cv);
 
@@ -22,10 +22,10 @@ X_cv((sx==0), :) = [];
 
 %%
 input_layer_size = size(X_train, 1);
-net1 = constructNet(0.001, 1, 0.1, input_layer_size, 100, 2)
+net1 = constructNet(0.1, 1, 5, input_layer_size, 50, 2)
 
 %%
-[net1,p] = trainNet(X_train, y_train, X_cv, y_cv, net1, 10, 32);
+[net1,p] = trainNet(X_train, y_train, X_cv, y_cv, net1, 10, 128);
 
 %%
 lr = logspace(-3,-1,6);
@@ -54,11 +54,11 @@ y_pred = predictNet(X_train(:,1:50), net1)
 %%
 L=20;
 B=3;
-for M = 81:100
+for M = 60:100
     X_t = [];
     y_t = [];
-    movement_spikes = trial(M,7).spikes(:,260:end); %300 or 301?
-    movement_handPos = trial(M,7).handPos(:,260:end);
+    movement_spikes = trial(M,1).spikes(:,260:end); %300 or 301?
+    movement_handPos = trial(M,1).handPos(:,260:end);
     T = size(movement_spikes, 2); %gives length of cut sample
 
     for k = B*L:L:T
@@ -80,7 +80,6 @@ for M = 81:100
 
     y_pred = predictNet(X_t, net1);
     y_pred = y_pred + my; %undo zero-centre output
-    y_t
 
 %     figure()
 %     subplot(1,2,1)
@@ -117,14 +116,14 @@ for M = 81:100
     %close all;
 end
 %%
-function net = constructNet(lr, b, lambda, I, H, O);
+function net = constructNet(lr, b, lambda, I, H, O)
 
-    e = 0.1;
+    e = 0.05;
     theta1 = rand(H, 1 + I) * 2 * e - e;
     theta2 = rand(O, 1 + H) * 2 * e - e;
     
     net = struct('lr', lr, 'beta', b, 'lambda', lambda, 'input_size', I, ...
-        'hidden_size', H, 'output_size', O, 'theta1', theta1, 'theta2', theta2, 'performance', 0);
+        'hidden_size', H, 'output_size', O, 'theta1', theta1, 'theta2', theta2, 'dropout1', [], 'dropout2', [], 'performance', 0);
     
 end
 
@@ -144,14 +143,17 @@ function [net_out, perf_stats] = trainNet(X_train, y_train, X_cv, y_cv, net_in, 
             X_batch = X_train(:, sample:sample+B-1);
             y_batch = y_train(:, sample:sample+B-1);
             
+            %net_in = dropout(net_in,0.1,0.3);
             [dw1, dw2] = backwardPass(X_batch, y_batch, net_in, B);
             
             net_in.theta1 = net_in.theta1 + dw1; %update weights of net
             net_in.theta2 = net_in.theta2 + dw2;
-            
+
             if rem(sample-1, 50*B) == 0
                 train_perf = [train_perf estimatePerformance(X_train, y_train, net_in)];
                 cv_perf = [cv_perf estimatePerformance(X_cv, y_cv, net_in)];
+                cv_perf(end)
+                train_perf(end)
             end
         end
 %         train_perf(epoch+1) = estimatePerformance(X_train, y_train, net_in);
@@ -178,9 +180,18 @@ function [net_out, perf_stats] = trainNet(X_train, y_train, X_cv, y_cv, net_in, 
         lr = net.lr;
         beta = net.beta;
         lambda = net.lambda;
+        
+%         missing_inp_units = net.dropout1;
+%         missing_hid_units = net.dropout2;
+%         %dropout neurons
+% 
+%         net.theta1(:, missing_inp_units + 1) = 0;
+%         net.theta1(missing_hid_units, :) = 0;
+%         net.theta2(:, missing_hid_units + 1) = 0;
+
         theta1 = net.theta1;
         theta2 = net.theta2;
-        
+    
         [V0, V1, V2] = forwardPass(X, net);
 
         %back prop - CHECK
@@ -192,8 +203,17 @@ function [net_out, perf_stats] = trainNet(X_train, y_train, X_cv, y_cv, net_in, 
 
         %delta1 = (1/(2*B)) * sum(delta1,2);
         %delta2 = (1/(2*B)) * sum(delta2,2);
-        w2 = (1/(2*B))*(lr * delta2 * V1') - (2 * lr * lambda * theta2);
-        w1 = (1/(2*B))*(lr * delta1 * V0') - (2 * lr * lambda * theta1);
+        theta1(:,1) = 0;
+        theta2(:,1) = 0;
+        w2 = (1/B)*(lr * delta2 * V1' - lr * lambda * theta2);
+        w1 = (1/B)*(lr * delta1 * V0' - lr * lambda * theta1);
+        
+%         w1(:, missing_inp_units + 1) = 0;
+%         w1(missing_hid_units, :) = 0;
+%         w2(:, missing_hid_units + 1) = 0;
+%         
+%         w1 = w1*0.7;
+%         w2 = w2*0.7;
     end
     function [V0, V1, V2] = forwardPass(X, net)
         beta = net.beta;
@@ -202,7 +222,6 @@ function [net_out, perf_stats] = trainNet(X_train, y_train, X_cv, y_cv, net_in, 
 
         m = size(X,2); %get number of samples 
         V0 = [ones(1,m); X]; %add bias term
-
         %Hidden layer = sigmoid units
         u1 = theta1*V0;
         V1 = sigmoid(u1, beta);
@@ -211,6 +230,19 @@ function [net_out, perf_stats] = trainNet(X_train, y_train, X_cv, y_cv, net_in, 
         V1 = [ones(1,m); V1]; %add bias term
         u2 = theta2*V1;
         V2 = u2;
+    end
+    function net = dropout(net, p1, p2)
+        I = net.input_size;
+        H = net.hidden_size;
+        
+        r1 = rand(1,I);
+        r2 = rand(1,H);
+        
+        idx1 = find(r1<p1);
+        idx2 = find(r2<p2);
+        
+        net.dropout1 = idx1;
+        net.dropout2 = idx2;
     end
     function f = sigmoid(u, b)
         %performs sigmoid function of u with parameter b(eta)
@@ -231,7 +263,7 @@ function [net_out, perf_stats] = trainNet(X_train, y_train, X_cv, y_cv, net_in, 
 end
 
 function y_pred = predictNet(X, net_in)
-    [~,~,y_pred] = forwardPass(X, net_in)
+    [~,~,y_pred] = forwardPass(X, net_in);
     function [V0, V1, V2] = forwardPass(X, net)
         beta = net.beta;
         theta1 = net.theta1;
@@ -252,18 +284,7 @@ function y_pred = predictNet(X, net_in)
     function f = sigmoid(u, b)
         %performs sigmoid function of u with parameter b(eta)
         %u may be any dimension
-        f = zeros(size(u));
         f = 1.0 ./ (1.0 + exp(-b*u));
-    end
-    function g = sigmoidGrad(u, b)
-        %calculates gradient of sigmoid at u with parameter b(eta)
-        g = zeros(size(u));
-        for i = 1:size(u,1)
-            for j = 1:size(u,2)
-                f = sigmoid(u(i,j), b);
-                g(i,j) = b * f * (1-f);
-            end
-        end
     end
 end
 
